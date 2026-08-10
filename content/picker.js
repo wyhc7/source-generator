@@ -249,7 +249,7 @@
       url: out,
       method: method || "GET",
       charset: "utf-8",
-      body: body || "",
+      body: body == null ? "" : typeof body === "string" ? body : String(body),
     });
   }
 

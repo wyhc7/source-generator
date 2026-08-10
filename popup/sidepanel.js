@@ -188,6 +188,30 @@
     return tabId;
   }
 
+  // 向内容脚本发消息；若内容脚本尚未注入（如页面在扩展加载/更新前已打开、未刷新），
+  // 用 scripting API 自动注入后再重试一次，避免让用户手动刷新。受限页面（chrome://、网上应用店等）
+  // 注入也会失败，此时抛出原始连接错误，由调用方提示。
+  async function sendToTab(tabId, msg) {
+    try {
+      return await chrome.tabs.sendMessage(tabId, msg);
+    } catch (e) {
+      // 仅在「内容脚本未注入 / 接收端不存在」时才自愈式注入；其它错误（如处理器异常）
+      // 不应重注，否则会重复注册 content script 监听器导致重复响应。
+      const noReceiver =
+        e && /receiving end does not exist|message port closed|could not establish connection/i.test(e.message || "");
+      if (!noReceiver) throw e;
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ["lib/selector-generator.js", "lib/ai-detect.js", "content/picker.js"],
+        });
+      } catch (e2) {
+        throw e;
+      }
+      return await chrome.tabs.sendMessage(tabId, msg);
+    }
+  }
+
   // ---------------- 模块导航 ----------------
   function renderMods() {
     const nav = $("#mods");
@@ -333,7 +357,7 @@
     status("请在页面上点选「" + label + "」元素（Esc 取消）");
     setPicking(true);
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_START", field: fid, mode });
+      await sendToTab(id, { type: "LSG_START", field: fid, mode });
     } catch (e) {
       status("无法连接页面，请刷新页面后重试（chrome:// 类页面不支持）", true);
       pendingField = null;
@@ -346,7 +370,7 @@
     if (id == null) return status("找不到当前标签页", true);
     status("自动填充中：分析当前页面…");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_AUTOFILL" });
+      await sendToTab(id, { type: "LSG_AUTOFILL" });
     } catch (e) {
       status("无法连接页面，请刷新后重试", true);
     }
@@ -360,7 +384,7 @@
     pendingSearch = true;
     status("搜索捕获中：在页面搜索框输入「" + kw + "」并提交…");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_CAPTURE_SEARCH", keyword: kw });
+      await sendToTab(id, { type: "LSG_CAPTURE_SEARCH", keyword: kw });
     } catch (e) {
       pendingSearch = false;
       status("无法连接页面，请刷新后重试", true);
@@ -391,7 +415,7 @@
         layout: defaultLayout(),
       }));
     }
-    if (!discoverStyle && data["explore.style"]) discoverStyle = data["explore.style"];
+    if (data["explore.style"]) discoverStyle = data["explore.style"];
   }
   function syncDiscover() {
     const lines = discoverCards
@@ -683,7 +707,7 @@
     status("发现收集：点击页面分类链接（Enter 完成，Esc 取消）");
     setPicking(true);
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_START", mode: "collect" });
+      await sendToTab(id, { type: "LSG_START", mode: "collect" });
     } catch (e) {
       status("无法连接页面，请刷新后重试", true);
       setPicking(false);
@@ -773,7 +797,7 @@
         const re = new RegExp(reStr);
         const m = urls[0].match(re);
         if (!m) return status("正则未匹配首个 URL", true);
-        const caps = m.slice(1).filter((x) => x != null).map(String);
+        const caps = m.slice(1).filter((x) => x != null && x !== "").map(String);
         tpl = urls[0];
         caps
           .slice()
@@ -1030,7 +1054,7 @@
     if (!rule.bookList && !rule.chapterList) return status("该规则缺少列表选择器，请先点选", true);
     status("正在页面抽取样本…");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_EXTRACT", rule: rule, ruleId: ruleId });
+      await sendToTab(id, { type: "LSG_EXTRACT", rule: rule, ruleId: ruleId });
     } catch (e) {
       status("无法连接页面，请刷新后重试", true);
     }
@@ -1068,7 +1092,7 @@
     if (id == null) return status("找不到当前标签页", true);
     status("正在尝试绕过 Cloudflare…");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_BYPASS_CF" });
+      await sendToTab(id, { type: "LSG_BYPASS_CF" });
     } catch (e) {
       status("无法连接页面", true);
     }
@@ -1079,7 +1103,7 @@
     if (id == null) return status("找不到当前标签页", true);
     status("正在读取 cookie…");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_GET_COOKIE" });
+      await sendToTab(id, { type: "LSG_GET_COOKIE" });
     } catch (e) {
       status("无法连接页面", true);
     }
@@ -1213,7 +1237,7 @@
     if (id == null) return status("找不到当前标签页", true);
     status("AI 正在分析页面…（页面上将出现彩色高亮）");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_AI_ANALYZE" });
+      await sendToTab(id, { type: "LSG_AI_ANALYZE" });
     } catch (e) {
       status("无法连接页面，请刷新后重试", true);
     }
@@ -1229,7 +1253,7 @@
     pendingLLM = { target, desc, llm };
     status("正在获取页面信息并提交给模型…");
     try {
-      await chrome.tabs.sendMessage(id, { type: "LSG_GET_PAGE" });
+      await sendToTab(id, { type: "LSG_GET_PAGE" });
     } catch (e) {
       status("无法连接页面，请刷新后重试", true);
       pendingLLM = null;
