@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="sidepanel.css" />
+    <title>Legado 书源生成器</title>
+  </head>
+  <body>
+    <header class="hd">
+      <h1>书源生成器 <span class="ver">v1.2</span></h1>
+      <p class="sub">点选网页元素 → 生成「阅读」书源 JSON</p>
+      <button id="btn-update" class="upd">检查更新</button>
+    </header>
+
+    <section class="meta">
+      <label>书源名称<input id="meta-name" type="text" placeholder="例如：笔趣阁Demo" /></label>
+      <label>书源URL（基础站址）<input id="meta-url" type="text" placeholder="https://example.com" /></label>
+      <details class="adv">
+        <summary>高级（请求头 / webJs）</summary>
+        <label>header（JSON，如 {"User-Agent":"Mozilla/5.0"}）
+          <textarea id="meta-header" placeholder='{"User-Agent":"Mozilla/5.0"}'></textarea>
+        </label>
+        <label>webJs（内容解密等）<input id="meta-webjs" type="text" placeholder="// 可选，阅读 APP 注入的 JS" /></label>
+      </details>
+    </section>
+
+    <nav id="mods" class="mods"></nav>
+    <nav id="tabs" class="tabs"></nav>
+    <main id="fields" class="fields"></main>
+
+    <section class="out">
+      <div class="out-bar">
+        <span>书源 JSON 预览</span>
+        <span>
+          <button id="btn-copy">复制</button>
+          <button id="btn-download">下载 .json</button>
+        </span>
+      </div>
+      <textarea id="json" readonly spellcheck="false"></textarea>
+    </section>
+
+    <div id="status" class="status"></div>
+
+    <script src="../lib/transform.js"></script>
+    <script src="../lib/ai-llm.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
