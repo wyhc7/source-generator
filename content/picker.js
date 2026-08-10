@@ -253,13 +253,40 @@
     });
   }
 
+  function onSearchSubmit(e) {
+    if (!searchCap || searchCap.done || !e.target.action) return;
+    const form = e.target;
+    const params = new URLSearchParams(new FormData(form));
+    params.forEach((v, k) => {
+      if (String(v).indexOf(searchCap.keyword) !== -1) params.set(k, "{{key}}");
+    });
+    if ((form.method || "get").toLowerCase() === "get") {
+      const out = form.action + "?" + params.toString();
+      searchCap.done = true;
+      badge.style.display = "none";
+      reportSearch(out, "GET", null);
+    } else {
+      e.preventDefault();
+      searchCap.done = true;
+      badge.style.display = "none";
+      reportSearch(form.action, "POST", params.toString());
+    }
+  }
+
   function startSearchCapture(msg) {
     searchCap = { keyword: msg.keyword || "", done: false };
     showTip("搜索捕获中：请在页面搜索框输入关键词并提交…");
     badge.textContent = "搜索捕获模式已开启";
     badge.style.display = "block";
 
-    const origFetch = window.fetch;
+    // 若之前已打过补丁，先还原，避免重复包裹导致重复捕获
+    if (window.__lsgOrigFetch) window.fetch = window.__lsgOrigFetch;
+    if (window.__lsgOrigOpen) XMLHttpRequest.prototype.open = window.__lsgOrigOpen;
+    if (window.__lsgOrigSend) XMLHttpRequest.prototype.send = window.__lsgOrigSend;
+    window.__lsgOrigFetch = window.fetch;
+    window.__lsgOrigOpen = XMLHttpRequest.prototype.open;
+    window.__lsgOrigSend = XMLHttpRequest.prototype.send;
+
     window.fetch = function (input, init) {
       const url = typeof input === "string" ? input : input && input.url;
       if (!searchCap.done && url && searchCap.keyword && url.indexOf(searchCap.keyword) !== -1) {
@@ -267,48 +294,24 @@
         badge.style.display = "none";
         reportSearch(url, (init && init.method) || "GET", init && init.body ? init.body : null);
       }
-      return origFetch.apply(this, arguments);
+      return window.__lsgOrigFetch.apply(this, arguments);
     };
-
-    const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (m, u) {
       this._lsg_m = m;
       this._lsg_u = u;
-      return origOpen.apply(this, arguments);
+      return window.__lsgOrigOpen.apply(this, arguments);
     };
-    const origSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function (b) {
       if (!searchCap.done && this._lsg_u && searchCap.keyword && this._lsg_u.indexOf(searchCap.keyword) !== -1) {
         searchCap.done = true;
         badge.style.display = "none";
         reportSearch(this._lsg_u, this._lsg_m || "GET", b || null);
       }
-      return origSend.apply(this, arguments);
+      return window.__lsgOrigSend.apply(this, arguments);
     };
 
-    document.addEventListener(
-      "submit",
-      function (e) {
-        if (!searchCap || searchCap.done || !e.target.action) return;
-        const form = e.target;
-        const params = new URLSearchParams(new FormData(form));
-        params.forEach((v, k) => {
-          if (String(v).indexOf(searchCap.keyword) !== -1) params.set(k, "{{key}}");
-        });
-        if ((form.method || "get").toLowerCase() === "get") {
-          const out = form.action + "?" + params.toString();
-          searchCap.done = true;
-          badge.style.display = "none";
-          reportSearch(out, "GET", null);
-        } else {
-          e.preventDefault();
-          searchCap.done = true;
-          badge.style.display = "none";
-          reportSearch(form.action, "POST", params.toString());
-        }
-      },
-      true
-    );
+    document.removeEventListener("submit", onSearchSubmit, true);
+    document.addEventListener("submit", onSearchSubmit, true);
   }
 
   // ---------------- 按规则抽取样本（webView 预览 / 调试） ----------------

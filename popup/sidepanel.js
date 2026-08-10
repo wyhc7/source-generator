@@ -164,7 +164,10 @@
     return String(s == null ? "" : s).replace(/"/g, "&quot;");
   }
   function escapeHtml(s) {
-    return String(s == null ? "" : s).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
   function tryParseJSON(s) {
     try {
@@ -174,9 +177,14 @@
     }
   }
   async function getTab() {
-    if (tabId) return tabId;
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    tabId = tabs[0] && tabs[0].id;
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const id = tabs[0] && tabs[0].id;
+      if (id != null) {
+        tabId = id;
+        return id;
+      }
+    } catch (e) {}
     return tabId;
   }
 
@@ -328,6 +336,7 @@
       await chrome.tabs.sendMessage(id, { type: "LSG_START", field: fid, mode });
     } catch (e) {
       status("无法连接页面，请刷新页面后重试（chrome:// 类页面不支持）", true);
+      pendingField = null;
       setPicking(false);
     }
   }
@@ -353,6 +362,7 @@
     try {
       await chrome.tabs.sendMessage(id, { type: "LSG_CAPTURE_SEARCH", keyword: kw });
     } catch (e) {
+      pendingSearch = false;
       status("无法连接页面，请刷新后重试", true);
     }
   }
@@ -517,8 +527,11 @@
       row.addEventListener("drop", (e) => {
         e.preventDefault();
         if (discoverDragId == null || discoverDragId === i) return;
-        const moved = discoverCards.splice(discoverDragId, 1)[0];
-        discoverCards.splice(i, 0, moved);
+        const from = discoverDragId;
+        const moved = discoverCards.splice(from, 1)[0];
+        let to = i;
+        if (from < to) to -= 1; // 源在目标之前，移除后目标索引前移一位
+        discoverCards.splice(to, 0, moved);
         discoverDragId = null;
         renderDiscoverCards();
         syncDiscover();
@@ -845,6 +858,7 @@
   function restoreData(snap) {
     Object.keys(data).forEach((k) => delete data[k]);
     Object.keys(snap).forEach((k) => (data[k] = snap[k]));
+    discoverCards = []; // 清空后由 loadDiscover 依据新 exploreUrl 重新生成卡片
     if (data["meta.name"]) {
       $("#meta-name").value = data["meta.name"];
     }
@@ -1424,12 +1438,15 @@
     if (data["explore.exploreUrl"]) src.exploreUrl = data["explore.exploreUrl"];
     if (data["search.searchUrl"]) {
       if (searchMeta.method === "POST" && searchMeta.body) {
+        const safeBody = String(searchMeta.body)
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"');
         src.ruleSearch.searchUrl =
           data["search.searchUrl"] +
           ',{"charset":"' +
           (searchMeta.charset || "utf-8") +
           '","method":"POST","body":"' +
-          searchMeta.body +
+          safeBody +
           '"}';
       } else {
         src.ruleSearch.searchUrl = data["search.searchUrl"];
