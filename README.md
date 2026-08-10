@@ -64,7 +64,7 @@
 ## 目录结构
 
 ```
-legado-source-generator-mvp/
+source-generator/   # 仓库根目录（即扩展目录）
 ├── manifest.json                 # MV3 配置（side_panel + content_scripts）
 ├── background.js                 # Service Worker：点击图标打开侧边栏
 ├── lib/
@@ -91,7 +91,7 @@ legado-source-generator-mvp/
 
 1. 打开 Chrome / Edge，访问 `chrome://extensions/`（Edge 为 `edge://extensions/`）。
 2. 打开右上角 **开发者模式**。
-3. 点击 **加载已解压的扩展程序**，选择本目录（`legado-source-generator-mvp`）。
+3. 点击 **加载已解压的扩展程序**，选择仓库根目录（即 manifest.json 所在目录）。
 4. 建议固定扩展图标方便使用。
 5. 点击图标即可打开侧边栏。
 

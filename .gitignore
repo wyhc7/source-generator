@@ -1,0 +1,11 @@
+# 编辑器 / 系统
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# 日志
+*.log
+
+# 依赖（本扩展为纯前端，无构建依赖）
+node_modules/
