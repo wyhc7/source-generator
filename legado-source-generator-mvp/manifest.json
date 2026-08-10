@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Legado 书源生成器",
+  "version": "1.2.0",
+  "description": "可视化点选网页元素，自动生成「阅读」(Legado) APP 的书源规则 JSON。支持发现页可视化卡片编辑、批量改URL、布局模板、调试预览、Cloudflare 绕过(导出注入 loginCheckJs)、状态持久化、键盘导航、错误检测、自动填充，以及可视化 AI 辅助（离线自动识别 + 大模型生成规则）。",
+  "permissions": ["sidePanel", "activeTab", "scripting", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "打开书源生成器"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["lib/selector-generator.js", "lib/ai-detect.js", "content/picker.js"],
+      "css": ["content/picker.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "popup/sidepanel.html"
+  }
+}
