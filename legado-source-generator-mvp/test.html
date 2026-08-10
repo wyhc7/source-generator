@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>selector + extract test</title>
+  </head>
+  <body>
+    <div class="container">
+      <h2 id="uniq">书库</h2>
+      <ul class="book-list">
+        <li class="book-item">
+          <img class="cover" src="cover1.jpg" />
+          <a class="book-link" href="/book/1">书名一</a>
+          <span class="author">作者A</span>
+        </li>
+        <li class="book-item">
+          <img class="cover" src="cover2.jpg" />
+          <a class="book-link" href="/book/2">书名二</a>
+          <span class="author">作者B</span>
+        </li>
+        <li class="book-item">
+          <img class="cover" src="cover3.jpg" />
+          <a class="book-link" href="/book/3">书名三</a>
+          <span class="author">作者C</span>
+        </li>
+      </ul>
+      <div class="pager"><a href="/list/1">1</a><a href="/list/2">2</a></div>
+    </div>
+    <!-- 直接以普通脚本加载选择器引擎，便于在真实引擎中验证 extractRule -->
+    <script src="lib/selector-generator.js"></script>
+  </body>
+</html>
