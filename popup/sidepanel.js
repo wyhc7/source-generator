@@ -1602,6 +1602,61 @@
     status("已下载 " + nm + ".json，可直接导入阅读 APP");
   };
 
+  // ---------------- 重置当前书源 ----------------
+  // 仅清空当前书源编辑状态；保留模板库 / AI 配置 / 布局模板，避免误删用户资产。
+  async function resetSource() {
+    Object.keys(data).forEach((k) => delete data[k]);
+    Object.keys(searchMeta).forEach((k) => delete searchMeta[k]);
+    collectCats = [];
+    discoverCards = [];
+    discoverStyle = "1";
+    aiResult = null;
+    debugResults = null;
+    pendingField = null;
+    pendingSearch = false;
+    pendingCollect = false;
+    pendingLLM = null;
+    activeModule = "rule";
+    activeTab = "explore";
+    batchMode = "tpl";
+    ["#meta-name", "#meta-url", "#meta-header", "#meta-webjs"].forEach((s) => {
+      const el = $(s);
+      if (el) el.value = "";
+    });
+    try {
+      await chrome.storage.local.remove(STATE_KEY);
+    } catch (e) {}
+    renderMods();
+    restoreMetaUI();
+    renderModule();
+    updateJSON();
+    status("已重置当前书源（模板库 / AI 配置 / 布局模板已保留）");
+  }
+  // 二次确认：首次点击「重置」变为「确认重置？」（红），3 秒内再点才执行，
+  // 避免误触清空正在编辑的书源。
+  let resetArmed = false;
+  let resetTimer = null;
+  $("#btn-reset").onclick = () => {
+    const btn = $("#btn-reset");
+    if (!resetArmed) {
+      resetArmed = true;
+      btn.textContent = "确认重置？";
+      btn.classList.add("armed");
+      status("再次点击「确认重置？」将清空当前书源（模板库/AI 配置保留）");
+      resetTimer = setTimeout(() => {
+        resetArmed = false;
+        btn.textContent = "重置";
+        btn.classList.remove("armed");
+      }, 3000);
+      return;
+    }
+    if (resetTimer) clearTimeout(resetTimer);
+    resetArmed = false;
+    btn.textContent = "重置";
+    btn.classList.remove("armed");
+    resetSource();
+  };
+
   // ---------------- 初始化 ----------------
   loadState().then(() => {
     restoreMetaUI();

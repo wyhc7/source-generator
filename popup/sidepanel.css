@@ -47,6 +47,11 @@ body {
   font-size: 11px;
   cursor: pointer;
 }
+.hd .upd.armed {
+  background: #e5484d;
+  border-color: #e5484d;
+  color: #fff;
+}
 .meta {
   padding: 10px 14px;
   background: var(--card);
