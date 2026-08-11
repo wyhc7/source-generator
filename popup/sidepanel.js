@@ -191,6 +191,10 @@
   // 向内容脚本发消息；若内容脚本尚未注入（如页面在扩展加载/更新前已打开、未刷新），
   // 用 scripting API 自动注入后再重试一次，避免让用户手动刷新。受限页面（chrome://、网上应用店等）
   // 注入也会失败，此时抛出原始连接错误，由调用方提示。
+  // 注入进行中缓存：同一 tab 同一轮并发自愈只注入一次，
+  // 避免重复执行 content script 顶层代码导致消息监听器被注册多次、消息被处理多次。
+  const _lsgInjecting = new Map();
+
   async function sendToTab(tabId, msg) {
     try {
       return await chrome.tabs.sendMessage(tabId, msg);
@@ -200,11 +204,20 @@
       const noReceiver =
         e && /receiving end does not exist|message port closed|could not establish connection/i.test(e.message || "");
       if (!noReceiver) throw e;
+      // 并发自愈时共享同一个注入 Promise，确保对同一 tab 只注入一次
       try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          files: ["lib/selector-generator.js", "lib/ai-detect.js", "content/picker.js"],
-        });
+        if (!_lsgInjecting.has(tabId)) {
+          _lsgInjecting.set(
+            tabId,
+            chrome.scripting
+              .executeScript({
+                target: { tabId: tabId },
+                files: ["lib/selector-generator.js", "lib/ai-detect.js", "content/picker.js"],
+              })
+              .finally(() => _lsgInjecting.delete(tabId))
+          );
+        }
+        await _lsgInjecting.get(tabId);
       } catch (e2) {
         throw e;
       }
@@ -843,7 +856,21 @@
     if (!box) return;
     const saved = await loadTemplates();
     box.innerHTML = "";
-    const names = Object.keys(BUILTINS).concat(Object.keys(saved));
+    // 内置与用户模板可能重名，去重且内置优先（同名用户模板不再重复显示一行）
+    const seen = new Set();
+    const names = [];
+    Object.keys(BUILTINS).forEach((n) => {
+      if (!seen.has(n)) {
+        seen.add(n);
+        names.push(n);
+      }
+    });
+    Object.keys(saved).forEach((n) => {
+      if (!seen.has(n)) {
+        seen.add(n);
+        names.push(n);
+      }
+    });
     names.forEach((name) => {
       const row = document.createElement("div");
       row.className = "tprow";
@@ -883,6 +910,11 @@
     Object.keys(data).forEach((k) => delete data[k]);
     Object.keys(snap).forEach((k) => (data[k] = snap[k]));
     discoverCards = []; // 清空后由 loadDiscover 依据新 exploreUrl 重新生成卡片
+    // 模板/快照不含搜索捕获方法信息，丢弃上一次搜索捕获残留，避免把旧的 POST 配置
+    // 错误拼接到新模板的搜索URL上（buildSource 依据 searchMeta 决定 POST 后缀）
+    searchMeta.method = undefined;
+    searchMeta.body = "";
+    searchMeta.charset = "";
     if (data["meta.name"]) {
       $("#meta-name").value = data["meta.name"];
     }
